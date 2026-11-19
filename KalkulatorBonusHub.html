@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#172554">
+<title>Kalkulator Bonus Hub</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#172033;background:#f3f5f9}
+*{box-sizing:border-box}body{margin:0;padding:20px 14px 36px}
+main{max-width:520px;margin:auto}
+header{background:linear-gradient(135deg,#172554,#2563eb);color:white;padding:22px;border-radius:20px;margin-bottom:16px}
+h1{font-size:23px;margin:0 0 5px}header p{margin:0;opacity:.85;font-size:14px}
+.card{background:white;border-radius:18px;padding:18px;margin:13px 0;box-shadow:0 4px 18px #17255412}
+label{display:block;font-size:14px;font-weight:650;margin-bottom:7px}
+input{width:100%;border:1px solid #d6dce7;border-radius:11px;padding:13px;font-size:17px;background:#fff;color:#172033}
+button{border:0;border-radius:11px;padding:13px 16px;font-size:15px;font-weight:700;cursor:pointer}
+.primary{background:#2563eb;color:white;width:100%;margin-top:12px}
+.secondary{background:#e8eefc;color:#1d4ed8}
+.total{font-size:30px;font-weight:800;color:#0f766e;margin:5px 0}
+.muted{color:#687386;font-size:13px}
+.line{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #edf0f4;font-size:14px}
+.line:last-child{border:0}.line strong{text-align:right}
+.tier{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:8px;margin:10px 0 15px}
+.tier input{min-width:0;padding:10px 8px;font-size:15px}
+.tier small{display:block;color:#687386;font-size:11px;margin:0 0 5px 3px}
+.actions{display:flex;gap:9px;flex-wrap:wrap}.actions button{flex:1}
+h2{font-size:18px;margin:0 0 14px}
+.note{font-size:12px;color:#778195;line-height:1.5;margin-top:13px}
+</style>
+</head>
+<body>
+<main>
+<header><h1>Kalkulator Bonus Hub</h1><p>Hitung bonus trip dengan tarif yang bisa diubah sendiri</p></header>
+<section class="card">
+<label for="trips">Jumlah trip / pesanan</label>
+<input id="trips" type="number" min="0" step="1" placeholder="Contoh: 35" inputmode="numeric">
+<button class="primary" id="calc">Hitung bonus</button>
+<div style="margin-top:17px" class="muted">TOTAL BONUS</div>
+<div class="total" id="total">Rp0</div>
+<div id="details"><div class="muted">Masukkan jumlah trip untuk melihat rincian.</div></div>
+</section>
+<section class="card">
+<h2>Pengaturan tarif</h2>
+<p class="muted">Atur batas trip dan bonus per trip. Kosongkan batas akhir untuk tingkat terakhir yang berlaku seterusnya.</p>
+<div id="tiers"></div>
+<div class="actions">
+<button class="secondary" id="save">Simpan tarif</button>
+<button class="secondary" id="reset">Reset awal</button>
+</div>
+<p class="note">Tarif disimpan di browser HP ini. Jika data browser dihapus atau membuka file di browser lain, pengaturan mungkin perlu dimasukkan kembali.</p>
+</section>
+</main>
+<script>
+const defaults=[{start:1,end:15,rate:0},{start:16,end:20,rate:3000},{start:21,end:25,rate:4500},{start:26,end:null,rate:6000}];
+let tiers=JSON.parse(localStorage.getItem('hubTiers')||'null')||defaults;
+const rupiah=n=>'Rp'+Math.round(n).toLocaleString('id-ID');
+const tiersEl=document.getElementById('tiers');
+function render(){
+ tiersEl.innerHTML='';
+ tiers.forEach((t,i)=>{
+  const row=document.createElement('div');row.className='tier';
+  row.innerHTML=`<div><small>Mulai trip</small><input aria-label="Mulai trip tingkat ${i+1}" type="number" min="1" data-i="${i}" data-k="start" value="${t.start}"></div>
+  <div><small>Sampai</small><input aria-label="Sampai trip tingkat ${i+1}" type="number" min="1" data-i="${i}" data-k="end" placeholder="∞" value="${t.end??''}"></div>
+  <div><small>Bonus / trip (Rp)</small><input aria-label="Tarif tingkat ${i+1}" type="number" min="0" data-i="${i}" data-k="rate" value="${t.rate}"></div>`;
+  tiersEl.appendChild(row);
+ });
+}
+function readTiers(){
+ const inputs=[...tiersEl.querySelectorAll('input')], next=tiers.map(t=>({...t}));
+ for(const el of inputs){const i=+el.dataset.i,k=el.dataset.k,v=el.value.trim();next[i][k]=k==='end'&&v===''?null:Number(v);}
+ if(next.some(t=>!Number.isInteger(t.start)||t.start<1||!Number.isInteger(t.rate)||t.rate<0||(t.end!==null&&(!Number.isInteger(t.end)||t.end<t.start))))throw Error('Periksa angka batas trip dan tarif.');
+ next.sort((a,b)=>a.start-b.start);
+ for(let i=1;i<next.length;i++){if(next[i].start<=(next[i-1].end??Infinity))throw Error('Rentang tingkat bonus tidak boleh tumpang tindih.');}
+ return next;
+}
+function calculate(){
+ const n=Math.max(0,Math.floor(Number(document.getElementById('trips').value)||0));
+ let sum=0,rows=[];
+ try{tiers=readTiers()}catch(e){document.getElementById('details').textContent=e.message;return;}
+ for(const t of tiers){
+  const last=t.end===null?n:Math.min(n,t.end);
+  const count=Math.max(0,last-t.start+1),amount=count*t.rate;
+  if(count){sum+=amount;rows.push(`<div class="line"><span>${t.start}–${t.end===null?'seterusnya':t.end} (${count} trip)</span><strong>${count} × ${rupiah(t.rate)} = ${rupiah(amount)}</strong></div>`);}
+ }
+ document.getElementById('total').textContent=rupiah(sum);
+ document.getElementById('details').innerHTML=rows.join('')||'<div class="muted">Belum ada trip yang masuk rentang bonus.</div>';
+}
+document.getElementById('calc').onclick=calculate;
+document.getElementById('trips').addEventListener('input',calculate);
+document.getElementById('save').onclick=()=>{try{tiers=readTiers();localStorage.setItem('hubTiers',JSON.stringify(tiers));calculate();alert('Tarif berhasil disimpan.');}catch(e){alert(e.message)}};
+document.getElementById('reset').onclick=()=>{tiers=defaults.map(t=>({...t}));render();localStorage.setItem('hubTiers',JSON.stringify(tiers));calculate();};
+render();calculate();
+</script>
+</body>
+</html>
