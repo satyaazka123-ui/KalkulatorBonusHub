@@ -1,3 +1,4 @@
+
 name: Build APK
 
 on:
@@ -26,14 +27,15 @@ jobs:
 
       - name: Extract project
         run: |
-          unzip -q KalkulatorBonusHub-Siap-Build-Online.zip
+          unzip -q KalkulatorBonusHub-Siap-Build-Online.zip -x '.github/*'
           ls -la
 
       - name: Build APK
-        run: gradle -p KalkulatorBonusHub assembleDebug
+        run: gradle assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: KalkulatorBonusHub-APK
-          path: KalkulatorBonusHub/app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          
